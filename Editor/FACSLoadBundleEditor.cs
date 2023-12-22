@@ -1,4 +1,4 @@
-﻿#if UNITY_EDITOR
+#if UNITY_EDITOR
 using UnityEngine;
 using UnityEditor;
 using System;
@@ -10,7 +10,7 @@ namespace FACS01.Utilities
     public class FACSLoadBundleEditor : Editor
     {
         private static FACSGUIStyles FacsGUIStyles;
-        private List<string> ShaderUsageIn;
+        private Dictionary<string, List<string>> shaderMaterialsMap;
         private List<List<string>> MaterialUsageIn;
         private readonly string[] filters = { "VRChat Files (vrca, vrcw)", "vrca,vrcw", "All files", "*" };
         private FACSLoadBundle LoadBundleScript;
@@ -63,28 +63,24 @@ namespace FACS01.Utilities
             LoadBundleScript.ShaderUsage = EditorGUILayout.Foldout(LoadBundleScript.ShaderUsage, "Shaders used in Asset", true);
 
             if (LoadBundleScript.ShaderUsage)
-            {
                 if (LoadBundleScript.LoadedAssetBundle)
                 {
-                    if (ShaderUsageIn == null)
-                    {
-                        (ShaderUsageIn, MaterialUsageIn) = LoadBundleScript.getShaderUsage();
-                    }
+                    if (shaderMaterialsMap == null || shaderMaterialsMap.Count == 0)
+                        shaderMaterialsMap = LoadBundleScript.getShaderUsage();
 
-                    EditorGUILayout.LabelField($"<color=cyan><b>{ShaderUsageIn.Count}</b> different shaders</color> were found:", FacsGUIStyles.helpboxSmall);
+                    EditorGUILayout.LabelField($"<color=cyan><b>{shaderMaterialsMap.Count}</b> different shaders</color> were found:", FacsGUIStyles.helpboxSmall);
 
-                    for (int i = 0; i < ShaderUsageIn.Count; i++)
+                    foreach (var shaderMaterials in shaderMaterialsMap)
                     {
-                        string temp = String.Join("\n\t", MaterialUsageIn[i]);
-                        EditorGUILayout.LabelField($"<color=cyan><b>{ShaderUsageIn[i]}</b></color>\n\t{temp}", FacsGUIStyles.helpboxSmall);
+                        string shaderName = shaderMaterials.Key;
+                        string materials = String.Join("\n\t", shaderMaterials.Value);
+                        EditorGUILayout.LabelField($"<color=cyan><b>{shaderName}</b></color>\n\t{materials}", FacsGUIStyles.helpboxSmall);
                     }
                 }
-                else EditorGUILayout.LabelField("Load a Bundle first!", FacsGUIStyles.helpboxSmall);
-            }
-            else if (ShaderUsageIn != null || MaterialUsageIn != null)
-            {
-                (ShaderUsageIn, MaterialUsageIn) = (null, null);
-            }
+                else
+                    EditorGUILayout.LabelField("Load a Bundle first!", FacsGUIStyles.helpboxSmall);
+            else if (shaderMaterialsMap != null)
+                shaderMaterialsMap = null;
         }
     }
 }
