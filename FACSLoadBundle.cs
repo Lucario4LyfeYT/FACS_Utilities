@@ -1,4 +1,4 @@
-﻿#if UNITY_EDITOR
+#if UNITY_EDITOR
 #if (VRC_SDK_VRCSDK2 || VRC_SDK_VRCSDK3)
 using VRC.Core;
 #endif
@@ -10,6 +10,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+
 
 using Object = UnityEngine.Object;
 
@@ -201,74 +203,52 @@ namespace FACS01.Utilities
                 coroutine = null;
             }
         }
-        public (List<string>, List<List<string>>) getShaderUsage()
+
+        public Dictionary<string, List<string>> getShaderUsage()
         {
-            List<Material> materialList = new List<Material>();
+            var shaderMaterialsMap = new Dictionary<string, HashSet<string>>();
+
+            Action<Renderer[]> processRenderers = (renderers) =>
+            {
+                foreach (Renderer renderer in renderers)
+                    foreach (Material material in renderer.sharedMaterials)
+
+                        if (material != null)
+                        {
+                            string shaderName = material.shader.name;
+                            if (!shaderMaterialsMap.TryGetValue(shaderName, out var materials))
+                            {
+                                materials = new HashSet<string>();
+                                shaderMaterialsMap[shaderName] = materials;
+                            }
+                            materials.Add(material.name);
+                        }
+            };
 
             if (avatarInstance)
             {
-                Renderer[] all_renderers = avatarInstance.GetComponentsInChildren<Renderer>(true);
-                foreach (Renderer rend in all_renderers)
-                {
-                    foreach (Material mat in rend.sharedMaterials)
-                    {
-                        if (!materialList.Contains(mat) && mat)
-                        {
-                            materialList.Add(mat);
-                        }
-                    }
-                }
+                Renderer[] allRenderers = avatarInstance.GetComponentsInChildren<Renderer>(true);
+                processRenderers(allRenderers);
             }
             else
             {
                 GameObject[] rootObjects = SceneManager.GetSceneByName(worldSceneName).GetRootGameObjects();
                 foreach (GameObject go in rootObjects)
                 {
-                    Renderer[] all_renderers = go.GetComponentsInChildren<Renderer>(true);
-                    foreach (Renderer rend in all_renderers)
-                    {
-                        foreach (Material mat in rend.sharedMaterials)
-                        {
-                            if (!materialList.Contains(mat) && mat != null)
-                            {
-                                materialList.Add(mat);
-                            }
-                        }
-                    }
+                    Renderer[] allRenderers = go.GetComponentsInChildren<Renderer>(true);
+                    processRenderers(allRenderers);
                 }
             }
 
-            List<string> all_shaders = new List<string>();
-            List<List<string>> mats_with_shader = new List<List<string>>();
+             //Optional: Convert HashSet to List if you need an ordered list of material names for each shader
+            var orderedShaderMaterialsMap = shaderMaterialsMap.ToDictionary(
+                kvp => kvp.Key,
+                kvp => kvp.Value.OrderBy(name => name).ToList()
+            );
 
-            foreach (Material mat in materialList)
-            {
-                if (!all_shaders.Contains(mat.shader.name))
-                {
-                    all_shaders.Add(mat.shader.name);
-                    mats_with_shader.Add(new List<string> { mat.shader.name, mat.name });
-                }
-                else
-                {
-                    if (!mats_with_shader[all_shaders.IndexOf(mat.shader.name)].Contains(mat.name))
-                    {
-                        mats_with_shader[all_shaders.IndexOf(mat.shader.name)].Add(mat.name);
-                    }
-                }
-            }
-
-            all_shaders.Sort();
-            mats_with_shader.Sort((a, b) => a[0].CompareTo(b[0]));
-            int shaderCount = all_shaders.Count;
-
-            for (int i = 0; i < shaderCount; i++)
-            {
-                mats_with_shader[i].RemoveAt(0);
-                mats_with_shader[i].Sort();
-            }
-
-            return (all_shaders, mats_with_shader);
+            return orderedShaderMaterialsMap;
         }
+
     }
 }
 #endif
